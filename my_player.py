@@ -57,10 +57,11 @@ class MyPlayer(PlayerAbalone):
             print(self.cutoff_depth(depth,20))
             if self.cutoff_depth(depth,20):
                 print("ici")
-                return 4
+                return 4,None
             v, move = -infinity, None
             v_dict = dict()
             for a in current_state.generate_possible_actions():
+                print(min_value(a.get_next_game_state(), alpha, beta,depth+1))
                 v2, _ = min_value(a.get_next_game_state(), alpha, beta,depth+1)  
                 #v_dict=v2
                 score=v2[player.get_id()] 
@@ -78,7 +79,7 @@ class MyPlayer(PlayerAbalone):
             if current_state.is_done():
                 return current_state.compute_scores(player.get_id()), None
             if self.cutoff_depth(depth,20):
-                return 4
+                return 4,None # il faut retourner un dictionaire 
             v, move = +infinity, None
             v_dict=dict()
             for a in current_state.generate_possible_actions():
