@@ -23,33 +23,67 @@ def solve(problem: UFLP) -> Tuple[List[int], List[int]]:
 
 
     s = SolutionInitiale(problem)
+    current_solution_cost = 0
     current_state_main_station_cost = 0
+
+    for i in range(problem.n_main_station):
+        if s[0][i] == 1:
+            current_solution_cost += problem.main_stations_opening_cost[i]
+        for j in range(problem.n_satellite_station):
+            current_solution_cost += problem.satellite_stations_connection_cost[i][j]
+    print("solution initiale : ", s)
+    print("cout de la solution initiale : ", current_solution_cost)
     
     s_star = s
-    for k in range (90000) : 
+    """for k in range(5000):
+        neighbors = getVoisins(s)
+        # print("nombre de voisin : ", len(neighbors))
+        # print("voisins : ", neighbors)
+        valid_neighbors, valid_neighbors_cost = validate(neighbors, current_solution_cost, problem)
+        # maybe valid neighbors is empty, check it
+        # print("voisins valides : ", valid_neighbors)
+        # print("valid neighbors cost : ", valid_neighbors_cost)
+        s, best_neighbor_cost = select_Neighbor(valid_neighbors, valid_neighbors_cost)
+        # print("best neighbor : ", s)
+        # print("best neighbor cost : ", best_neighbor_cost)
+        # print("current cost : ", current_solution_cost)
+        if (best_neighbor_cost < current_solution_cost):
+            s_star = s
+    return s_star"""
+
+    begin = time.time()
+    for k in range (1000) : 
         for i in range(0, problem.n_main_station):
             if s[0][i] == 1:
                 current_state_main_station_cost += problem.main_stations_opening_cost[i]
 
-        neighbours = getVoisins(s_star)
-        validNeighbours, neighbours_cost = validate(neighbours, current_state_main_station_cost, problem)
-        s, nextNeighbour_cost = select_Neighbour(validNeighbours, neighbours_cost)
+        neighbors = getVoisins(s_star)
+        validNeighbors, neighbors_cost = validate(neighbors, current_state_main_station_cost, problem)
+        if len(validNeighbors) == 0:
+            print("plus de voisins valide")
+            break
+        s, nextNeighbour_cost = select_Neighbor(validNeighbors, neighbors_cost)
         if (nextNeighbour_cost < current_state_main_station_cost):
             s_star = s
+    end = time.time() - begin
+    print("delta en seconde : ", end)
 
     print("gares principales : ", s_star[0])
     print("gares satellites : ", s_star[1])
+    begin = time.time()
     for j in range(0, problem.n_satellite_station):
-        print("j : ", j)
+        # print("j : ", j)
         for i in range(0, problem.n_main_station):
-            print("i : ", i)
+            # print("i : ", i)
             if s_star[0][i] == 1:
                 current_cost = problem.satellite_stations_connection_cost[s_star[1][j]][j] # something wrong here with index ?
-                print("current cost : ", current_cost)
-                print("cost to compare : ", problem.satellite_stations_connection_cost[i][j])
+                # print("current cost : ", current_cost)
+                # print("cost to compare : ", problem.satellite_stations_connection_cost[i][j])
                 if current_cost > problem.satellite_stations_connection_cost[i][j]:
                     s_star[1][j] = i
     print("s star : ", s_star)
+    end = time.time() - begin
+    print("delta pour le calcul final : ", end)
     return s_star
     """
     𝖫𝗈𝖼𝖺𝗅𝖲𝖾𝖺𝗋𝖼𝗁(N, L, Q, f, Θ) :
@@ -81,28 +115,59 @@ def SolutionInitiale(problem: UFLP):
     indices=[i for i in range(len(GaresOuvertes)) if GaresOuvertes[i] == 1 ]
     Satellites = [random.choice(indices) for i in range (problem.n_satellite_station)]
     return (GaresOuvertes, Satellites)
+    return ([0, 1, 0, 0], [1, 1, 1, 1, 1, 1])
 
 
-def getVoisins(state: Tuple[List[int], List[int]]): 
-    Voisins = []
-    GaresOuvertes = state[0]
-    Satellites = state[1]
-    for i in range (len(GaresOuvertes)) :
-        Voisins.append(state)
-        # Modifier les gares ouvertes
-        """print("voisins[-1] : ", Voisins[-1])
-        print("voisins : ", Voisins)
-        print("len(voisins) : ", len(Voisins))
-        print("voisins[len(voisins)] : ", Voisins[len(Voisins)])
-        print("voisins[len(voisins)][0] : ", Voisins[len(Voisins)][0])
-        print("voisins[len(voisins)][0][i] : ", Voisins[len(Voisins)][0][i])"""
-        if GaresOuvertes[i] == 0 :
-            Voisins[-1][0][i] == 1
-        else :
-            Voisins[-1][0][i] == 0
-    return Voisins
+def getVoisins(state: Tuple[List[int], List[int]]):
+    main_stations, satellites_stations = state
+    neighbors = []
+
+    for i in range(len(main_stations)):
+        if not (main_stations.count(1) == 1 and main_stations[i] == 1):
+            neighbor = (main_stations[:i] + [1 - main_stations[i]] + main_stations[i + 1:], satellites_stations)
+            indices=[i for i in range(len(main_stations)) if neighbor[0][i] == 1 ]
+            satellites = [random.choice(indices) for i in range (len(satellites_stations))]
+            neighbor = (neighbor[0], satellites)
+            neighbors.append(neighbor)
+    
+    # voisinage changer l'association d'une gare satellite
+    # for j in range(len(satellites_stations)):
+    #     for i in range(len(main_stations)):
+    #         if main_stations[i] == 1:
+    #             neighbor = (main_stations, satellites_stations[:j] + [i] + satellites_stations[j + 1:])
+    #             neighbors.append(neighbor)
+    
+    return neighbors
+
+    # Voisins = []
+    # GaresOuvertes = state[0]
+    # Satellites = state[1]
+    # for i in range (len(GaresOuvertes)) :
+    #     Voisins.append(state)
+    #     # Modifier les gares ouvertes
+    #     if GaresOuvertes[i] == 0 :
+    #         Voisins[-1][0][i] == 1 # = pas == et same 2 lignes plus bas
+    #     else :
+    #         Voisins[-1][0][i] == 0
+    # return Voisins
 
 def validate(voisins: List[Tuple[List[int], List[int]]], current_cost: float, problem: UFLP):
+    """neighbors_cost = [0 for i in range(len(voisins))]
+    for i in range(len(voisins)):
+        for j in range(problem.n_main_station):
+            if voisins[i][0][j] == 1:
+                neighbors_cost[i] += problem.main_stations_opening_cost[j]
+            for k in range(problem.n_satellite_station):
+                neighbors_cost[i] += problem.satellite_stations_connection_cost[j][k]
+    
+    valid_neighbors = []
+    valid_neighbors_cost = []
+    for i in range(len(voisins)):
+        if neighbors_cost[i] <= current_cost:
+            valid_neighbors.append(voisins[i])
+            valid_neighbors_cost.append(neighbors_cost[i])
+    return valid_neighbors, valid_neighbors_cost"""
+
     neighbours_main_station_cost = [0 for i in range(0, len(voisins))]
     """cost_current_state = 0
     for i in range(0, len(problem.n_main_station)):
@@ -118,12 +183,14 @@ def validate(voisins: List[Tuple[List[int], List[int]]], current_cost: float, pr
             if voisins[i][0][j] == 1:
                 neighbours_main_station_cost[i] += problem.main_stations_opening_cost[j]
 
-    valid_neighbours = []
+    valid_neighbors = []
+    valid_neighbors_cost = []
     for i in range(0, len(voisins)):
         if neighbours_main_station_cost[i] <= current_cost:
-            valid_neighbours.append(voisins[i])
-    return valid_neighbours, neighbours_main_station_cost
+            valid_neighbors.append(voisins[i])
+            valid_neighbors_cost.append(neighbours_main_station_cost[i])
+    return valid_neighbors, valid_neighbors_cost
 
-def select_Neighbour(voisins: List[Tuple[List[int], List[int]]], cost: List[int]):
+def select_Neighbor(voisins: List[Tuple[List[int], List[int]]], cost: List[int]):
     index = cost.index(min(cost))
     return voisins[index], cost[index]
