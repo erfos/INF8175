@@ -72,7 +72,6 @@ def getNeighbours(state: Tuple[List[int], List[int]]):
     # Pour chaque gare principale, on change son état (si elle était ouvert, on la ferme et vice-versa)
     # Chaque changement d'état d'une gare principale crée un nouveau voisin
     # EX : [1, 0, 0, 1] --> [0, 0, 0, 1], [1, 1, 0, 1], [1, 0, 1, 1], [1, 0, 0, 0]
-    # [1, 0, 0, 0]
     for i in range(len(main_stations)):
         neighbor = (main_stations[:i] + [1 - main_stations[i]] + main_stations[i + 1:], satellites_stations)
         if not (main_stations.count(1) == 1 and main_stations[i] == 1):
