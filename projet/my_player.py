@@ -3,6 +3,7 @@ from player_abalone import PlayerAbalone
 from seahorse.game.action import Action
 from seahorse.game.game_state import GameState
 from seahorse.utils.custom_exceptions import MethodNotImplementedError
+from typing import Tuple #Any, List,
 
 
 class MyPlayer(PlayerAbalone):
@@ -36,39 +37,55 @@ class MyPlayer(PlayerAbalone):
         Returns:
             Action: selected feasible action
         """
+        # player = current_state.get_next_player()
+        score_avant = self.center_control_heuristic(current_state)
+        # current_state.convert_light_action_to_action(data={'from':(6,2),'to':(7,3)})
+        # score_apres = self.center_control_heuristic(current_state)
+        # print("le score avant : ", score_avant)
+        # print("le score apres : ", score_apres)
+
+
+
+        # print("piece : ", current_state.get_rep().get_pieces_player(player)[1])
+        # print("type des coordonnes : ", type(current_state.get_rep().get_pieces_player(player)[1][0]))
+        # print("dimension du plateau : ", current_state.rep.dimensions)
+        # for x in current_state.get_rep().get_grid():
+        #     print(*x)
+        # for a,b in current_state.get_rep().env.items():
+        #     print(a,b.__dict__)
+        print("on joue avec : ", self.get_piece_type())
+
+        print("score avant : ", score_avant)
         result = self.h_alphabeta_search(current_state)
+        # score_apres = self.center_control_heuristic(result[1].get_next_game_state())
+        # print("score apres : ", score_apres)
+        print("result : ", result[0])
         print("move : ", result[1])
         return result[1]
         # return self.h_alphabeta_search(current_state)
         raise MethodNotImplementedError()
 
-    def cutoff_depth(self,depth,d):
+    def cutoff_depth(self, depth, d):
         """A cutoff function that searches to depth d."""
         return depth > d
 
-    def heuristic(action):
+    def heuristic(self, action):
         # previous_state = action.get_current_game_state()
         current_state = action.get_next_game_state()
-        # player = current_state.get_next_player()
-
-        # pieces_number_before = previous_state.get_rep().get_pieces_player(player)
-        # pieces_number_after = current_state.get_rep().get_pieces_player(player)
+        # score = self.center_control_heuristic(current_state)
 
         dico = dict()
         players = current_state.players
         dico[players[0].get_id()] = 0
         dico[players[1].get_id()] = 0
+        # dico[self.get_id()] = score
 
-        # if pieces_number_after < pieces_number_before:
-        #     dico[player.get_id()] = -1
 
         return dico
     
-    def h_alphabeta_search(self, current_state, h=heuristic):
+    def h_alphabeta_search(self, current_state):
         """Search game to determine best action; use alpha-beta pruning.
         As in [Figure 5.7], this version searches all the way to the leaves."""
-
-        # TODO : retirer les actions qui retirent un pion
 
         infinity = math.inf
         player = current_state.get_next_player()
@@ -78,15 +95,13 @@ class MyPlayer(PlayerAbalone):
             current_state = action.get_next_game_state()
             if current_state.is_done():
                 return current_state.compute_scores(player.get_id()), None
-            # print('on peut entrer dans le cutoff max ? ', self.cutoff_depth(depth, 4))
             if self.cutoff_depth(depth, 4):
-                # print("DANS LE CUTOFF DU MAX VALUE")
-                return h(action), None
+                return self.heuristic(action), None
             v, move = -infinity, None
             v_dict = dict()
             n_actions = current_state.generate_possible_actions()
             for a in n_actions:
-                if not self.action_removing_pieces(a):
+                if self.action_removing_pieces(a) == False:
                     v2, _ = min_value(a, alpha, beta, depth+1)
                     score = v2[player.get_id()]
                     if score > v:
@@ -95,6 +110,9 @@ class MyPlayer(PlayerAbalone):
                         alpha = max(alpha, score)
                     if v >= beta:
                         return v_dict, move
+                else:
+                    print("des pions sont retirés (MAX)")
+                    print("l'action en question : ", a)
             return v_dict, move
 
         def min_value(action, alpha, beta,depth):
@@ -102,14 +120,12 @@ class MyPlayer(PlayerAbalone):
             if current_state.is_done():
                 return current_state.compute_scores(player.get_id()), None
             if self.cutoff_depth(depth,4):
-                # print("DANS LE CUTOFF DU MIN VALUE")
-                # print("resultat de h : ", h(current_state))
-                return h(action), None
+                return self.heuristic(action), None
             v, move = +infinity, None
             v_dict = dict()
             n_actions = current_state.generate_possible_actions()
             for a in n_actions:
-                if  not self.action_removing_pieces(a):
+                if self.action_removing_pieces(a) == False:
                     v2,_ = max_value(a, alpha, beta, depth+1)
                     score = v2[player.get_id()]
                     if score < v:
@@ -118,6 +134,9 @@ class MyPlayer(PlayerAbalone):
                         beta = min(beta, v)
                     if v <= alpha:
                         return v_dict, move
+                else:
+                    print("des pions sont retirés (MIN)")
+                    print("l'action en question : ", a)
             return v_dict, move
 
         # Action avec les mêmes états juste pour avoir les deux états dans le minimax
@@ -134,115 +153,108 @@ class MyPlayer(PlayerAbalone):
 
         # print("pieces : ", current_state.get_rep().get_pieces_player(player)[1])
         # grid = current_state.get_rep().get_grid()
-        # print("grid : ", grid)
-        piece = current_state.get_rep().get_pieces_player(player)[1][0]
-        grid_piece = current_state.get_rep().get_env().get(piece)
-        print("piece en hexa : ", piece)
-        print('piece en grid : ', grid_piece)
+        
+        # print("plateau : ", current_state.get_rep().env)
+
+        # piece = current_state.get_rep().get_pieces_player(player)[1][0]
+        # print("piece en hexa : ", piece)
+        # print('piece en grid : ', grid_piece)
+
+        # print("nous jouons avec les pions : ", self.piece_type)
 
         return pieces_number_after < pieces_number_before
-
-
-    # def h_alphabeta_search(self, current_state, h=heuristic):
-        """Search game to determine best action; use alpha-beta pruning.
-        As in [Figure 5.7], this version searches all the way to the leaves."""
-"""
-        # TODO : retirer les actions qui retirent un pion
-
-        infinity = math.inf
-        player = current_state.get_next_player()
-        print("id du joueur : ",player.get_id())
-       
-        def max_value(current_state, alpha, beta,depth):
-            if current_state.is_done():
-                return current_state.compute_scores(player.get_id()), None
-            # print('on peut entrer dans le cutoff max ? ', self.cutoff_depth(depth, 4))
-            if self.cutoff_depth(depth, 4):
-                # print("DANS LE CUTOFF DU MAX VALUE")
-                return h(current_state), None
-            v, move = -infinity, None
-            v_dict = dict()
-            n_actions = current_state.generate_possible_actions()
-            for a in n_actions:
-                v2, _ = min_value(a.get_next_game_state(), alpha, beta, depth+1)
-                score = v2[player.get_id()]
-                if score > v:
-                    v, move = score, a
-                    v_dict = v2
-                    alpha = max(alpha, score)
-                if v >= beta:
-                    return v_dict, move
-            return v_dict, move
-
-        def min_value(current_state, alpha, beta,depth):
-            if current_state.is_done():
-                return current_state.compute_scores(player.get_id()), None
-            if self.cutoff_depth(depth,4):
-                # print("DANS LE CUTOFF DU MIN VALUE")
-                # print("resultat de h : ", h(current_state))
-                return h(current_state), None
-            v, move = +infinity, None
-            v_dict = dict()
-            n_actions = current_state.generate_possible_actions()
-            for a in n_actions:
-                v2,_ = max_value(a.get_next_game_state(), alpha, beta, depth+1)
-                score = v2[player.get_id()]
-                if score < v:
-                    v, move = score, a
-                    v_dict = v2
-                    beta = min(beta, v)
-                if v <= alpha:
-                    return v_dict, move
-            return v_dict, move
-
-        # Action avec les mêmes états juste pour avoir les deux états dans le minimax
-        action = Action(current_state, current_state)
-        return max_value(current_state, -infinity, +infinity, 0)
-"""        
-
-    # def alphabeta_search(self, current_state):
-    #     """Search game to determine best action; use alpha-beta pruning.
-    #     As in [Figure 5.7], this version searches all the way to the leaves."""
-
-    #     infinity = math.inf
-    #     player = current_state.get_next_player()
-        
-    #     def max_value(current_state, alpha, beta):
-    #         if current_state.is_done():
-    #             return current_state.compute_scores(player.get_id()), None
-    #         v, move = -infinity, None
-    #         v_dict = dict()
-    #         for a in current_state.generate_possible_actions():
-    #             v2, _ = min_value(a.get_next_game_state(), alpha, beta)  
-    #             #v_dict=v2
-    #             score=v2[player.get_id()] 
-    #             print(min_value(a.get_next_game_state(), alpha, beta) )
-    #             print("v2=",v2)
-    #             print("v=",v)
-    #             if score > v:
-    #                 v, move = score, a
-    #                 v_dict=v2
-    #                 alpha = max(alpha, score)
-    #             if v >= beta:
-    #                 return v_dict, move
-    #         return v_dict, move
-
-    #     def min_value(current_state, alpha, beta):
-    #         if current_state.is_done():
-    #             return current_state.compute_scores(player.get_id()), None
-    #         v, move = +infinity, None
-    #         v_dict=dict()
-    #         for a in current_state.generate_possible_actions():
-    #             v2,_ = max_value(a.get_next_game_state(), alpha, beta)
-    #             score=v2[player.get_id()]
-    #             if score < v:
-    #                 v, move = score, a
-    #                 v_dict=v2
-    #                 beta = min(beta, v)
-    #             if v <= alpha:
-    #                 return v_dict, move
-    #         return v_dict, move
-
-    #     return max_value(current_state, -infinity, +infinity)
     
+    def center_control_heuristic(self, current_state: GameState) -> int:
+        #TODO: les dimensions en attributs, en constante ou en parametre ? or just keep it like this
+        center = (8, 4)
+        # max_distance = 4
+        max_gain = 0.1 #TODO: à ajuster
+        # la variation = max_gain / max distance
+        variation = -0.025 #TODO: à ajuster
+        player = current_state.get_next_player()
+        player_pieces = current_state.get_rep().get_pieces_player(player)[1]
 
+        bonus = 0
+        # la distance maximale au centre vaut 4
+        for piece in player_pieces:
+            distance = self.manhattan_distance(center, piece)
+            gain = variation * distance + max_gain
+            bonus += gain
+        return bonus
+    
+    def manhattan_distance(self, position1: Tuple[int, int], position2: Tuple[int, int]) -> int:
+        """
+            pour aller de (3,1) à (8, 4) ou de (13, 3) à (8, 4) c est bon mais par exemple,
+            de (3,1) à (2, 4), ma logique ne fonctionne pas (ou plutôt ce n est pas le chemin le plus court)
+            de (5, 1) à (8, 4) non plus d ailleurs. de (3, 1) à (4, 2) non plus ..
+            Bon, il me faut une autre methode
+        """
+        # x = 0 # dist absolue divisé par deux, floor
+        # y = abs(position1[1] - position2[1])
+
+        """Bon, ça a l air de fonctionner"""
+        # distance = 0
+        # la même position
+        if position1 == position2:
+            distance = 0
+        # sur la même colonne
+        elif position1[1] == position2[1]:
+            distance = abs(position1[0] - position2[0]) / 2
+        # sur la même ligne
+        elif position1[0] == position2[0]:
+            distance = abs(position1[1] - position2[1])
+        # sur la même diagonale
+        elif abs(position1[0] - position2[0]) == abs(position1[1] - position2[1]):
+            distance = abs(position1[0] - position2[0])
+        # ex : (10, 2) ou (10. 0) et (7, 7)
+        else:
+            distance = abs(position1[1] - position2[1])
+        
+        return distance
+ 
+"""
+TODO: heurisctic
+    Heuristic déjà implémentées et incorporées:
+    - Conservation des billes : Encouragez la conservation des billes en pénalisant les mouvements qui pourraient
+    rendre une bille vulnérable. (DONE)
+
+    Heuristic implémentées mais pas incorporées:
+    - Contrôle du centre du plateau : Les billes au centre du plateau peuvent être plus stratégiques.
+    Vous pourriez attribuer un bonus pour les billes situées au centre. (DONE)
+
+    Le reste :
+    - Évaluation simple de la position : Considérez le nombre de billes ou de groupes de billes pour chaque joueur.
+    Un joueur avec plus de billes sur le plateau peut être dans une position plus forte.
+    (simpla à faire mais efficace une fois que d'autres heuristiques nous permettront de nous retrouver
+    plus facilement dans cette situation)
+
+    - Mobilité : Plus un joueur a d'options de déplacement, mieux c'est. Vous pourriez évaluer la mobilité
+    en comptant le nombre de déplacements légaux possibles pour chaque joueur.
+    (oui mais et la qualité des déplacements ? Peut être accorder un mini bonus pour ça)    
+
+    - Évaluation de la stabilité : Évaluez la stabilité des groupes de billes. Un groupe stable est moins
+    susceptible d'être poussé par l'adversaire.
+    (À FAIRE, ça à l'air faisable, logique et intéressant)
+
+    - Contrôle des bords : Les billes près des bords peuvent être plus vulnérables. Vous pourriez attribuer
+    des pénalités pour les billes près des bords.
+    (Ajouter à l'heuristique "controle du centre du plateau ?")
+
+    - Encerclement : Considérez si un joueur peut encercler les billes de l'adversaire. Cela peut être une position forte.
+    (ça n'a pas l''air trivial)
+
+    - Stratégie offensive/défensive : L'algorithme pourrait encourager des stratégies plus offensives ou défensives
+    en fonction de la phase du jeu.
+    (on dirait un peu l'idée des tables donc on va laisser faire pour l'instant)
+
+    - Évaluation dynamique : L'heuristique pourrait être dynamique et changer en fonction de la phase du jeu.
+    Par exemple, en début de partie, la mobilité peut être plus importante.
+    (rejoint aussi l'idée des tables mais peut être implémenté plus facilement. Par exemple, dependemment de la phase
+    du jeu, changer la pondération accordé à chaque heuristique)
+
+    - Adaptation à l'adversaire : Apprenez du style de jeu de l'adversaire et ajustez l'heuristique en conséquence.
+    (on va laisser ça aux experts de Slack la)
+
+    - l'isolation des pions (better s'il sont regroupés)
+    (À FAIRE, ça à l'air important/intéressant et faisable)
+"""
