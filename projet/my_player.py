@@ -28,6 +28,7 @@ class MyPlayer(PlayerAbalone):
             time_limit (float, optional): the time limit in (s)
         """
         super().__init__(piece_type,name,time_limit,*args)
+        self.opponent_piece_type = 'W' if piece_type == 'B' else 'B'
 
 
     def compute_action(self, current_state: GameState, **kwargs) -> Action:
@@ -59,6 +60,7 @@ class MyPlayer(PlayerAbalone):
         # for a,b in current_state.get_rep().env.items():
         #     print(a,b.__dict__)
         print("on joue avec : ", self.get_piece_type())
+        print("l'adversaire joue avec : ", self.opponent_piece_type)
 
         print("score avant : ", score_avant)
         result = self.h_alphabeta_search(current_state)
@@ -74,12 +76,22 @@ class MyPlayer(PlayerAbalone):
         """A cutoff function that searches to depth d."""
         return depth > d
 
+    # TODO: le contenu plusieurs heuristique fait une boucle sur les pièce.
+    # Pour économiser du temps, on peut mélanger tout ça dans la même boucle
+    # for piece in player_pieces:
+    #     fonction pour le centre
+    #     fonction pour les bords
+    #     etc ..
+    # Ce ne serait pas les fonction tel quel, ce serait le contenu des boucles
+    # for de chaque fonction (vérifier la logique quand même)
     def heuristic(self, action):
         # previous_state = action.get_current_game_state()
         current_state = action.get_next_game_state()
         score = 0
         score += self.center_control_heuristic(current_state)
-        # score += self.border_control_heuristic(current_state)
+        score += self.border_control_heuristic(current_state)
+        score += self.avoid_encirclement_heuristic(current_state)
+        score += self.isolation_heuristic(current_state)
 
         dico = dict()
         players = current_state.players
@@ -91,8 +103,7 @@ class MyPlayer(PlayerAbalone):
         return dico
     
     def h_alphabeta_search(self, state: GameState):
-        """Search game to determine best action; use alpha-beta pruning.
-        As in [Figure 5.7], this version searches all the way to the leaves."""
+        """Search game to determine best action; use alpha-beta pruning."""
 
         infinity = math.inf
         # player = current_state.get_next_player()
@@ -102,6 +113,10 @@ class MyPlayer(PlayerAbalone):
         def max_value(action: Action, alpha, beta, depth):
             current_state = action.get_next_game_state()
             if current_state.is_done():
+                # TODO: revoir ce qu'on fait si on arrive à un état final
+                # Je pense que puisque l'état final indique la fin du jeu,
+                # on peut vraiment savoir qui a gagné et pas estimer.
+                # Donc on pourrait voir qui a le plus de pions.
                 return current_state.scores, None
                 # return current_state.compute_scores(self.get_id()), None
             if self.cutoff_depth(depth, 3):
@@ -127,6 +142,7 @@ class MyPlayer(PlayerAbalone):
         def min_value(action: Action, alpha, beta, depth):
             current_state = action.get_next_game_state()
             if current_state.is_done():
+                # TODO: see max value
                 return current_state.scores, None
                 # return current_state.compute_scores(self.get_id()), None
             if self.cutoff_depth(depth, 3):
@@ -152,6 +168,46 @@ class MyPlayer(PlayerAbalone):
         # Action avec les mêmes états juste pour avoir les deux états dans le minimax
         action = Action(state, state)
         return max_value(action, -infinity, +infinity, 0)
+    
+    # si on élimine l'adversaire c est parfait
+    def elimination_heuristic(self, current_state: GameState) -> float:
+        players = current_state.players
+        pieces_number_player_1 = current_state.get_rep().get_pieces_player(players[0])[0]
+        pieces_number_player_2 = current_state.get_rep().get_pieces_player(players[1])[0]
+
+        elimination_score = 0
+        if self.get_id() == players[0].get_id():
+            elimination_score = pieces_number_player_1 - pieces_number_player_2
+        else:
+            elimination_score = pieces_number_player_2 - pieces_number_player_1
+        return float(elimination_score)
+    
+    def isolation_heuristic(self, current_state: GameState) -> float:
+        player_pieces = current_state.get_rep().get_pieces_player(self)[1]
+        isolation_score = 0
+
+        for piece in player_pieces:
+            # Récupérer les positions voisines du pion
+            neighbors = current_state.get_rep().get_neighbours(piece[0], piece[1])
+            empty_neighbor = sum(1 for neighbor_type, _ in neighbors.values() if neighbor_type == "EMPTY")
+            # plus de 2 cases vides, il est surement isolé
+            if empty_neighbor > 2:
+                isolation_score -= 0.1
+
+        return isolation_score
+
+    def avoid_encirclement_heuristic(self, current_state: GameState) -> float:
+        player_pieces = current_state.get_rep().get_pieces_player(self)[1]
+        encirclement_score = 0
+        # neighbour = current_state.get_rep().get_neighbours(player_pieces[0][0], player_pieces[0][1])
+        # print("neighbour : ", neighbour.values())
+
+        for piece in player_pieces:
+            neighbors = current_state.get_rep().get_neighbours(piece[0], piece[1])
+            opponent_neighbors = sum(0.1 for neighbor_type, _ in neighbors.values() if neighbor_type == self.opponent_piece_type)
+            encirclement_score -= opponent_neighbors + 0.1  # Diminuer le score en cas de voisin mais pas s'il n y en a qu'un
+
+        return encirclement_score
 
     def action_removing_pieces(self, action: Action) -> bool:
         previous_state = action.get_current_game_state()
@@ -178,7 +234,7 @@ class MyPlayer(PlayerAbalone):
 
         return pieces_number_after < pieces_number_before
     
-    def border_control_heuristic(self, current_state: GameState) -> int:
+    def border_control_heuristic(self, current_state: GameState) -> float:
         borders = [(0, 4), (1, 5), (2, 6), (3, 7),
                    (4, 8), (6, 8), (8, 8), (10, 8),
                    (12, 8), (13, 7), (14, 6), (15, 5),
@@ -193,17 +249,16 @@ class MyPlayer(PlayerAbalone):
         player_pieces = current_state.get_rep().get_pieces_player(self)[1]
         for piece in player_pieces:
             if piece in borders:
-                penalty -= 0.01 # TODO: revoir les valeurs
+                penalty -= 0.1 # TODO: revoir les valeurs
         return penalty
 
-
-    def center_control_heuristic(self, current_state: GameState) -> int:
+    def center_control_heuristic(self, current_state: GameState) -> float:
         #TODO: les dimensions en attributs, en constante ou en parametre ? or just keep it like this
         center = (8, 4)
         # max_distance = 4
-        max_gain = 0.1 #TODO: à ajuster
+        max_gain = 1 #TODO: à ajuster
         # la variation = max_gain / max distance
-        variation = -0.025 #TODO: à ajuster
+        variation = -0.25 #TODO: à ajuster
 
         player_pieces = current_state.get_rep().get_pieces_player(self)[1]
 
@@ -247,33 +302,42 @@ class MyPlayer(PlayerAbalone):
  
 """
 TODO: heurisctic
-    Heuristic déjà implémentées et incorporées:
+    HEURISTIQUES DÉJÀ IMPLÉMENTÉES ET INCORPORÉES:
     - Conservation des billes : Encouragez la conservation des billes en pénalisant les mouvements qui pourraient
-    rendre une bille vulnérable. (DONE)
+    rendre une bille vulnérable. (DONE -> action_removing_pieces)
 
-    Heuristic implémentées mais pas incorporées:
     - Contrôle du centre du plateau : Les billes au centre du plateau peuvent être plus stratégiques.
-    Vous pourriez attribuer un bonus pour les billes situées au centre. (DONE)
+    Vous pourriez attribuer un bonus pour les billes situées au centre. (DONE -> center_control_heuristic)
 
-    Le reste :
+    - Contrôle des bords : Les billes près des bords peuvent être plus vulnérables. Vous pourriez attribuer
+    des pénalités pour les billes près des bords. (DONE -> border_control_heuristic)
+    (Ajouter à l'heuristique "controle du centre du plateau ?")
+
+    - Éviter encerclement : Éviter de se faire encercler par l'adversaire. (DONE -> avoid_encirclement_heuristic)
+    (faire attention à ce que ça n'empêche pas d'aller vers l'adversaire pour le pousser)
+
+    - l'isolation des pions (better s'il sont regroupés) (idée perso) (DONE -> isolation_heuristic)
+    (À FAIRE, ça à l'air important/intéressant et faisable)
+    
+
+    HEURISTIQUES IMPLÉMENTÉES MAIS PAS INCORPORÉES:
     - Évaluation simple de la position : Considérez le nombre de billes ou de groupes de billes pour chaque joueur.
-    Un joueur avec plus de billes sur le plateau peut être dans une position plus forte.
-    (simpla à faire mais efficace une fois que d'autres heuristiques nous permettront de nous retrouver
+    Un joueur avec plus de billes sur le plateau peut être dans une position plus forte. (DONE -> elimination_heuristic)
+    (simple à faire mais efficace une fois que d'autres heuristiques nous permettront de nous retrouver
     plus facilement dans cette situation)
 
+    
+
+    LE RESTE:
     - Mobilité : Plus un joueur a d'options de déplacement, mieux c'est. Vous pourriez évaluer la mobilité
     en comptant le nombre de déplacements légaux possibles pour chaque joueur.
     (oui mais et la qualité des déplacements ? Peut être accorder un mini bonus pour ça)    
 
     - Évaluation de la stabilité : Évaluez la stabilité des groupes de billes. Un groupe stable est moins
-    susceptible d'être poussé par l'adversaire.
+    susceptible d'être poussé par l'adversaire. (ça a l'air d'aller avec isolation comme center_control va avec border_control)
     (À FAIRE, ça à l'air faisable, logique et intéressant)
 
-    - Contrôle des bords : Les billes près des bords peuvent être plus vulnérables. Vous pourriez attribuer
-    des pénalités pour les billes près des bords.
-    (Ajouter à l'heuristique "controle du centre du plateau ?")
-
-    - Encerclement : Considérez si un joueur peut encercler les billes de l'adversaire. Cela peut être une position forte.
+    - Encerclement (encercler l'autre) : Considérez si un joueur peut encercler les billes de l'adversaire. Cela peut être une position forte.
     (ça n'a pas l''air trivial)
 
     - Stratégie offensive/défensive : L'algorithme pourrait encourager des stratégies plus offensives ou défensives
@@ -288,6 +352,6 @@ TODO: heurisctic
     - Adaptation à l'adversaire : Apprenez du style de jeu de l'adversaire et ajustez l'heuristique en conséquence.
     (on va laisser ça aux experts de Slack la)
 
-    - l'isolation des pions (better s'il sont regroupés)
-    (À FAIRE, ça à l'air important/intéressant et faisable)
+    - une heuristique qui évite les états où il y a plus de pions adverses sur la même diagonale (idée perso) (si on a moins de
+    3 pions sur une diagonale il ne faut pas que l'adversaire en ai plus sinon il peut nous pousser)
 """
