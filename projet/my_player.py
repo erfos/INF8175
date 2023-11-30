@@ -1,3 +1,7 @@
+"""
+    Thaïs Genisson (2315046)
+    Erika Fossouo (1943831)
+"""
 import math
 from player_abalone import PlayerAbalone
 from seahorse.game.action import Action
@@ -37,6 +41,7 @@ class MyPlayer(PlayerAbalone):
         Returns:
             Action: selected feasible action
         """
+        print("les scores : ", current_state.scores)
         # player = current_state.get_next_player()
         score_avant = self.center_control_heuristic(current_state)
         # current_state.convert_light_action_to_action(data={'from':(6,2),'to':(7,3)})
@@ -72,30 +77,34 @@ class MyPlayer(PlayerAbalone):
     def heuristic(self, action):
         # previous_state = action.get_current_game_state()
         current_state = action.get_next_game_state()
-        # score = self.center_control_heuristic(current_state)
+        score = 0
+        score += self.center_control_heuristic(current_state)
+        # score += self.border_control_heuristic(current_state)
 
         dico = dict()
         players = current_state.players
         dico[players[0].get_id()] = 0
         dico[players[1].get_id()] = 0
-        # dico[self.get_id()] = score
+        dico[self.get_id()] = score
 
-
+        # EST CE QUE JE DOIS TOUCHER AU SCORE ? LE RESULTAT DE L HEURISTIQUE VA OÙ ?
         return dico
     
-    def h_alphabeta_search(self, current_state):
+    def h_alphabeta_search(self, state: GameState):
         """Search game to determine best action; use alpha-beta pruning.
         As in [Figure 5.7], this version searches all the way to the leaves."""
 
         infinity = math.inf
-        player = current_state.get_next_player()
-        print("id du joueur : ",player.get_id())
+        # player = current_state.get_next_player()
+        # print("id du joueur : ", player.get_id())
+        print("id du joueur : ", self.get_id())
        
-        def max_value(action, alpha, beta,depth):
+        def max_value(action: Action, alpha, beta, depth):
             current_state = action.get_next_game_state()
             if current_state.is_done():
-                return current_state.compute_scores(player.get_id()), None
-            if self.cutoff_depth(depth, 4):
+                return current_state.scores, None
+                # return current_state.compute_scores(self.get_id()), None
+            if self.cutoff_depth(depth, 3):
                 return self.heuristic(action), None
             v, move = -infinity, None
             v_dict = dict()
@@ -103,23 +112,24 @@ class MyPlayer(PlayerAbalone):
             for a in n_actions:
                 if self.action_removing_pieces(a) == False:
                     v2, _ = min_value(a, alpha, beta, depth+1)
-                    score = v2[player.get_id()]
+                    score = v2[self.get_id()]
                     if score > v:
                         v, move = score, a
                         v_dict = v2
                         alpha = max(alpha, score)
                     if v >= beta:
                         return v_dict, move
-                else:
-                    print("des pions sont retirés (MAX)")
-                    print("l'action en question : ", a)
+                # else:
+                #     print("des pions sont retirés (MAX)")
+                #     # print("l'action en question : ", a)
             return v_dict, move
 
-        def min_value(action, alpha, beta,depth):
+        def min_value(action: Action, alpha, beta, depth):
             current_state = action.get_next_game_state()
             if current_state.is_done():
-                return current_state.compute_scores(player.get_id()), None
-            if self.cutoff_depth(depth,4):
+                return current_state.scores, None
+                # return current_state.compute_scores(self.get_id()), None
+            if self.cutoff_depth(depth, 3):
                 return self.heuristic(action), None
             v, move = +infinity, None
             v_dict = dict()
@@ -127,29 +137,33 @@ class MyPlayer(PlayerAbalone):
             for a in n_actions:
                 if self.action_removing_pieces(a) == False:
                     v2,_ = max_value(a, alpha, beta, depth+1)
-                    score = v2[player.get_id()]
+                    score = v2[self.get_id()]
                     if score < v:
                         v, move = score, a
                         v_dict = v2
                         beta = min(beta, v)
                     if v <= alpha:
                         return v_dict, move
-                else:
-                    print("des pions sont retirés (MIN)")
-                    print("l'action en question : ", a)
+                # else:
+                #     print("des pions sont retirés (MIN)")
+                #     # print("l'action en question : ", a)
             return v_dict, move
 
         # Action avec les mêmes états juste pour avoir les deux états dans le minimax
-        action = Action(current_state, current_state)
+        action = Action(state, state)
         return max_value(action, -infinity, +infinity, 0)
 
-    def action_removing_pieces(self, action) -> bool:
+    def action_removing_pieces(self, action: Action) -> bool:
         previous_state = action.get_current_game_state()
         current_state = action.get_next_game_state()
-        player = current_state.get_next_player()
+        # player = current_state.get_next_player()
+        # print("player id dans action removing pieces : ", player.get_id())
+        # print("avec self : ", self.get_id())
 
-        pieces_number_before = previous_state.get_rep().get_pieces_player(player)[0]
-        pieces_number_after = current_state.get_rep().get_pieces_player(player)[0]
+        pieces_number_before = previous_state.get_rep().get_pieces_player(self)[0]
+        pieces_number_after = current_state.get_rep().get_pieces_player(self)[0]
+        # print("nombre pieces avant : ", pieces_number_before)
+        # print("nombre pieces apres : ", pieces_number_after)
 
         # print("pieces : ", current_state.get_rep().get_pieces_player(player)[1])
         # grid = current_state.get_rep().get_grid()
@@ -164,6 +178,25 @@ class MyPlayer(PlayerAbalone):
 
         return pieces_number_after < pieces_number_before
     
+    def border_control_heuristic(self, current_state: GameState) -> int:
+        borders = [(0, 4), (1, 5), (2, 6), (3, 7),
+                   (4, 8), (6, 8), (8, 8), (10, 8),
+                   (12, 8), (13, 7), (14, 6), (15, 5),
+                   (16, 4), (15, 3), (14, 2), (13, 1),
+                   (12, 0), (10, 0), (8, 0), (6, 0),
+                   (4, 0), (3, 1), (2, 2), (1, 3)
+                   ]
+        # Je ne peux pas vraiment utiliser ça comme ça parce que l'état initial a un score
+        # de 0 donc dès que je vais appliquer ça, n'importe quel autre état sera pire
+        # Mais combiner avec l heuristique de controle de centre, est ce que ça équilibre
+        penalty = 0
+        player_pieces = current_state.get_rep().get_pieces_player(self)[1]
+        for piece in player_pieces:
+            if piece in borders:
+                penalty -= 0.01 # TODO: revoir les valeurs
+        return penalty
+
+
     def center_control_heuristic(self, current_state: GameState) -> int:
         #TODO: les dimensions en attributs, en constante ou en parametre ? or just keep it like this
         center = (8, 4)
@@ -171,8 +204,8 @@ class MyPlayer(PlayerAbalone):
         max_gain = 0.1 #TODO: à ajuster
         # la variation = max_gain / max distance
         variation = -0.025 #TODO: à ajuster
-        player = current_state.get_next_player()
-        player_pieces = current_state.get_rep().get_pieces_player(player)[1]
+
+        player_pieces = current_state.get_rep().get_pieces_player(self)[1]
 
         bonus = 0
         # la distance maximale au centre vaut 4
